@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+dependencies = [
+  "pandas",
+  "numpy",
+  "nltk",
+  "textstat"
+]
+name = "misinformation_detection"
+description = "Descrive the project."
+version = "1.0.0"
+authors = [
+  { name= "Author 1", email= "email1@mail.com" },
+  { name= "Author 2", email= "email2@mail.com" },
+  { name= "Author 3", email= "email3@mail.com"}
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+keywords = ["python", "package", "build", "tutorial"]
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.urls]
+"Homepage" = "https://github.com/repo"
+"Repository" = "https://github.com/repo.git"
+"Bug Tracker" = "https://github.com/repo/issues"
+
+[project.scripts]
+misinformation_detection = "misinformation_project.__main__:main"
