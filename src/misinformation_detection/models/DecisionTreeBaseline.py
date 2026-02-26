@@ -23,7 +23,10 @@ class DecisionTreeBaseline:
         if vectorizer_path:
             self.vectorizer = joblib.load(vectorizer_path)
         else:
-            self.vectorizer = TfidfVectorizer(**(vectorizer_params or {"max_features": 100, "stop_words": "english"}))
+            if vectorizer_params is not None:
+                self.vectorizer = TfidfVectorizer(**(vectorizer_params or {"max_features": 100, "stop_words": "english"}))
+            else:
+                self.vectorizer = None
         
         # Load model or setup from params
         if model_path:
@@ -37,14 +40,20 @@ class DecisionTreeBaseline:
         Fit model to input data (text and labels).
         Automatically fits TF-IDF vectorizer first if needed.
         """
-        X_vec = self.vectorizer.fit_transform(X_text)
+        if self.vectorizer:
+            X_vec = self.vectorizer.fit_transform(X_text)
+        else:
+            X_vec = X_text
         self.model.fit(X_vec, y)
 
     def transform(self, X_text):
         """
         Transform text with the vectorizer.
         """
-        return self.vectorizer.transform(X_text)
+        if self.vectorizer:
+            return self.vectorizer.transform(X_text)
+        else:
+            return X_text
 
     def predict(self, X_text):
         """
@@ -53,20 +62,21 @@ class DecisionTreeBaseline:
         X_vec = self.transform(X_text)
         return self.model.predict(X_vec)
 
-    def save(self, model_path, vectorizer_path):
+    def save(self, model_path, vectorizer_path=None):
         """
         Save the trained model and vectorizer.
         """
         joblib.dump(self.model, model_path)
-        joblib.dump(self.vectorizer, vectorizer_path)
+        if self.vectorizer and vectorizer_path:
+            joblib.dump(self.vectorizer, vectorizer_path)
 
-    def load(self, model_path, vectorizer_path):
+    def load(self, model_path, vectorizer_path=None):
         """
         Load model and vectorizer from disk.
         """
         self.model = joblib.load(model_path)
-        self.vectorizer = joblib.load(vectorizer_path)
-
+        if vectorizer_path:
+            self.vectorizer = joblib.load(vectorizer_path)
 
         
     def eval(self, X_test, y_test):
@@ -99,7 +109,7 @@ class DecisionTreeBaseline:
                               title=f"Confusion Matrix — {name}")
 
         # ROC and Precision-Recall (Logic moved to utility function)
-        X_test_tfidf = self.vectorizer.transform(X_test)
+        X_test_tfidf = self.transform(X_test)
         probs = self.model.predict_proba(X_test_tfidf)
         fake_idx = list(self.model.classes_).index("fake")
         y_scores = probs[:, fake_idx]

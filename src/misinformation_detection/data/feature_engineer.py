@@ -205,42 +205,76 @@ def engineer_features(df, save_path=None):
 
 
 def prepare_text_structured_features_full(
-    csv_path,
+    csv_path="",
+    df=None,
     text_column="article_lemmatized",
     target_column="label",
     columns_to_exclude=None,
     test_size=0.2,
     random_state=42,
     max_tfidf_features=100,
+    vectorizer=None,
+    inference_mode=False,
     verbose=False
 ):
     """
-    Loads data, splits text & full DataFrame, applies TF-IDF, then drops excluded columns.
-    
-    This version keeps all columns until after the split, then drops excluded columns.
+    Loads data, applies TF-IDF, and merges structured features.
+    If inference_mode=True, assumes df is unlabeled and skips splitting.
 
-    Returns combined structured+text train/test, original full splits, y splits, and vectorizer.
+    Returns:
+      If training mode: 
+          X_train_combined, X_test_combined, X_structured_train_full, 
+          X_structured_test_full, y_train, y_test, vectorizer
+      If inference mode:
+          X_inference_combined, X_structured_inference_full, vectorizer
     """
 
-    # Load data
-    df = load_fakenewsnet_from_dataframe(csv_path)
+    import pandas as pd
+    from sklearn.model_selection import train_test_split
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
+    # Load the dataframe if not provided
+    if df is None:
+        df = load_fakenewsnet_from_dataframe(csv_path)
+
     if verbose:
-        print(f"Loaded shape: {df.shape}")
-        print(df.columns.tolist())
+        print(f"Loaded DataFrame shape: {df.shape}")
 
-    # Target & text
-    X_text = df[text_column]
-    y = df[target_column]
-
-    # Default columns to exclude
+    # Columns to exclude by default
     if columns_to_exclude is None:
         columns_to_exclude = [
-            "id", "title", "label", "dataset_source", "source_domain",
+            "id", "title", "label", "dataset_source", "source_domain", "source_domain.1",
             "article_cleaned", "date_cleaned", "source_domain_grouped",
             "article_lemmatized", "rule_pred"
         ]
 
-    # Split — keep all columns initially
+    # ---------------- INFERENCE MODE ----------------
+    if inference_mode:
+        if vectorizer is None:
+            raise ValueError("Inference mode requires a fitted vectorizer.")
+
+        X_text_inference = df[text_column]
+        X_structured_inference_full = df.copy()
+
+        X_inference_tfidf = vectorizer.transform(X_text_inference)
+        tfidf_inference_df = pd.DataFrame(
+            X_inference_tfidf.toarray(),
+            columns=vectorizer.get_feature_names_out(),
+            index=X_structured_inference_full.index
+        )
+
+        X_structured_inference = X_structured_inference_full.drop(columns=columns_to_exclude, errors="ignore")
+        X_inference_combined = pd.concat([tfidf_inference_df, X_structured_inference], axis=1)
+
+        if verbose:
+            print(f"Inference combined shape: {X_inference_combined.shape}")
+
+        return X_inference_combined, X_structured_inference_full, vectorizer
+
+    # ---------------- TRAINING MODE ----------------
+    X_text = df[text_column]
+    y = df[target_column]
+
     X_text_train, X_text_test, X_structured_train_full, X_structured_test_full, y_train, y_test = train_test_split(
         X_text,
         df,
@@ -250,36 +284,24 @@ def prepare_text_structured_features_full(
         stratify=y
     )
 
-    # TF-IDF
-    vectorizer = TfidfVectorizer(max_features=max_tfidf_features, stop_words="english")
+    if vectorizer is None:
+        vectorizer = TfidfVectorizer(max_features=max_tfidf_features, stop_words="english")
+
     X_train_tfidf = vectorizer.fit_transform(X_text_train)
     X_test_tfidf = vectorizer.transform(X_text_test)
 
-    tfidf_train_df = pd.DataFrame(
-        X_train_tfidf.toarray(),
-        columns=vectorizer.get_feature_names_out(),
-        index=X_structured_train_full.index
-    )
+    tfidf_train_df = pd.DataFrame(X_train_tfidf.toarray(), columns=vectorizer.get_feature_names_out(), index=X_structured_train_full.index)
+    tfidf_test_df = pd.DataFrame(X_test_tfidf.toarray(), columns=vectorizer.get_feature_names_out(), index=X_structured_test_full.index)
 
-    tfidf_test_df = pd.DataFrame(
-        X_test_tfidf.toarray(),
-        columns=vectorizer.get_feature_names_out(),
-        index=X_structured_test_full.index
-    )
+    X_structured_train = X_structured_train_full.drop(columns=columns_to_exclude, errors="ignore")
+    X_structured_test = X_structured_test_full.drop(columns=columns_to_exclude, errors="ignore")
 
-    # Drop excluded columns AFTER split
-    X_structured_train = X_structured_train_full.drop(columns=columns_to_exclude)
-    X_structured_test = X_structured_test_full.drop(columns=columns_to_exclude)
-
-    # Combine
     X_train_combined = pd.concat([tfidf_train_df, X_structured_train], axis=1)
     X_test_combined = pd.concat([tfidf_test_df, X_structured_test], axis=1)
 
     if verbose:
-        # Inspect
-        print(f"Structured shape after drop: {X_structured_train.shape}")
-        print(f"Combined training shape: {X_train_combined.shape}")
-        print(f"Combined test shape: {X_test_combined.shape}")
+        print(f"Train combined shape: {X_train_combined.shape}")
+        print(f"Test combined shape: {X_test_combined.shape}")
 
     return (
         X_train_combined,

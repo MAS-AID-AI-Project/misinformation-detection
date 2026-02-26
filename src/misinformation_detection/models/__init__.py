@@ -2,3 +2,6 @@ from .DecisionTreeBaseline import DecisionTreeBaseline
 from .LogisticRegressionBaseline import LogisticRegressionBaseline
 from .RuleBasedClassifier import RuleBasedClassifier
 from .MajorityClassBaseline import MajorityClassBaseline
+from .DistilBERTModelWrapper import DistilBERTModelWrapper
+from .XGBoostModel import XGBoostModel
+from .RandomForestModel import RandomForestModel

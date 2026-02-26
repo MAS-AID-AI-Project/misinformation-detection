@@ -38,7 +38,10 @@ def operational_efficiency(model, vectorizer, X_test, name, low_thresh=0.3, high
     Requires the fitted model (for predict_proba) and the fitted vectorizer.
     """
     # Transform the text using the provided vectorizer
-    vectorized = vectorizer.transform(X_test)
+    if vectorizer is not None:
+        vectorized = vectorizer.transform(X_test)
+    else:
+        vectorized = X_test
     
     # Get the prediction probabilities for the positive class (index 1)
     probs = model.predict_proba(vectorized)[:, 1]
